@@ -80,8 +80,8 @@ type Identifier struct {
   Token token.Token       // token.IDENT
   Value string
 }
-
-func (id *Identifier) statementNode() {}
+// Identifier can possibly be an expression, e.g x + x.
+func (id *Identifier) expressionNode() {}
 func (id *Identifier) TokenLiteral() string  { return id.Token.Literal }
 
 func (id *Identifier) String() string {

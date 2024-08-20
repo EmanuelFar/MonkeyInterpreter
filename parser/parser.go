@@ -6,9 +6,22 @@ import (
   "Monkey/token"
   "fmt"
 )
+
+const (
+  _ int = iota
+  LOWEST
+  EQUALS      // ==
+  LESSGREATER // > OR <
+  SUM         // +
+  PRODUCT     // *
+  PREFIX      // -X OR !X
+  CALL        // myFunction(X)
+)
+
+
 type (
   prefixParseFn func() ast.Expression
-  infixParseFn  func(ast.Expression) ast.Expression
+  infixParseFn  func(ast.Expression) ast.Expression // argument resembles the left expression of a binary operation.
   )
 
 type Parser struct {
@@ -17,6 +30,8 @@ type Parser struct {
   curToken  token.Token
   peekToken token.Token   // successor of curToken
 
+  // ParseFns take Token and return a function that parses it.
+  // according to Pratt's Parsing algorithm
   prefixParseFns map[token.TokenType]prefixParseFn
   infixParseFns  map[token.TokenType]infixParseFn
   errors []string
@@ -27,6 +42,9 @@ func New(l* lexer.Lexer) *Parser {
     l: l,
     errors: []string{},
   }
+  
+  p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
+  p.registerPrefix(token.IDENT, p.parseIdentifier)
 
   // Read two tokens to set curToken and peekToken
   p.nextToken()
@@ -108,6 +126,21 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
   return stmt
 }
 
+func (p *Parser) parseExpression(precendence int) ast.Expression {
+  // prefix is a function that parses the given Token.
+  prefix := p.prefixParseFns[p.curToken.Type]
+  if prefix == nil {
+    return nil
+  }
+  leftExp := prefix()
+  return leftExp
+}
+
+func (p *Parser) parseIdentifier() ast.Expression {
+  return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
+}
+
+
 func (p *Parser) curTokenIs(t token.TokenType) bool {
   return p.curToken.Type == t
 }
@@ -128,7 +161,7 @@ func (p *Parser) expectPeek(t token.TokenType) bool {
   }
 }
 
-/***** Parse Functions *****/
+/***** Maps management *****/
 func (p *Parser) registerPrefix(tokenType token.TokenType, fn prefixParseFn) {
   p.prefixParseFns[tokenType] = fn
 }
