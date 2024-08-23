@@ -80,13 +80,16 @@ type Identifier struct {
   Token token.Token       // token.IDENT
   Value string
 }
-// Identifier can possibly be an expression, e.g x + x.
+
+// Identifier can possibly be an expression, e.g 'x + x.'
 func (id *Identifier) expressionNode() {}
 func (id *Identifier) TokenLiteral() string  { return id.Token.Literal }
 
 func (id *Identifier) String() string {
   return id.Value
 }
+
+
 /*****   return statement    *****/
 
 // <token.RETURN> <statement>
@@ -109,6 +112,7 @@ func (rs *ReturnStatement) String() string {
 }
 /*****   expression statement   *****/
 
+// a statement that consists solely one expression , e.g 'x + 10;'
 type ExpressionStatement struct {
   Token       token.Token
   Expression  Expression
@@ -123,5 +127,55 @@ func (es *ExpressionStatement) String() string {
     return es.Expression.String()
   }
   return ""
+}
+
+/***** prefix expression ******/
+
+type PrefixExpression struct {
+  Token     token.Token   // e.g !, -
+  Operator  string
+  Right     Expression
+}
+
+func (pe *PrefixExpression) expressionNode() {}
+func (pe *PrefixExpression) TokenLiteral() string { return pe.Token.Literal }
+func (pe *PrefixExpression) String() string {
+var out bytes.Buffer
+  out.WriteString("(")
+  out.WriteString(pe.Operator)
+  out.WriteString(pe.Right.String())
+  out.WriteString(")")
+  return out.String()
+}
+
+
+type IntegerLiteral struct {
+  Token token.Token
+  Value int64
+}
+
+func (il *IntegerLiteral) expressionNode() {}
+func (il *IntegerLiteral) TokenLiteral() string {return il.Token.Literal }
+func (il *IntegerLiteral) String() string {return il.Token.Literal }
+
+/***** infix expression *****/
+
+type InfixExpression struct {
+  Token   token.Token
+  Left    Expression
+  Operator  string
+  Right   Expression
+}
+
+func (ie *InfixExpression) expressionNode() {}
+func (ie *InfixExpression) TokenLiteral() string { return ie.Token.Literal }
+func (ie *InfixExpression) String() string {
+  var out bytes.Buffer
+  out.WriteString("(")
+  out.WriteString(ie.Left.String())
+  out.WriteString(" " + ie.Operator + " ")
+  out.WriteString(ie.Right.String())
+  out.WriteString(")")
+  return out.String()
 }
 

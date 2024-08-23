@@ -5,6 +5,7 @@ import (
   "Monkey/lexer"
   "Monkey/token"
   "fmt"
+  "strconv"
 )
 
 const (
@@ -28,10 +29,10 @@ type Parser struct {
   l*        lexer.Lexer
 
   curToken  token.Token
-  peekToken token.Token   // successor of curToken
+  peekToken token.Token   // successor of curToken.
 
   // ParseFns take Token and return a function that parses it.
-  // according to Pratt's Parsing algorithm
+  // according to Pratt's Parsing algorithm.
   prefixParseFns map[token.TokenType]prefixParseFn
   infixParseFns  map[token.TokenType]infixParseFn
   errors []string
@@ -45,8 +46,11 @@ func New(l* lexer.Lexer) *Parser {
   
   p.prefixParseFns = make(map[token.TokenType]prefixParseFn)
   p.registerPrefix(token.IDENT, p.parseIdentifier)
+  p.registerPrefix(token.INT, p.parseIntegerLiteral)
+  p.registerPrefix(token.BANG, p.parsePrefixExpression)
+  p.registerPrefix(token.MINUS, p.parsePrefixExpression)
 
-  // Read two tokens to set curToken and peekToken
+  // Read two tokens to set curToken and peekToken.
   p.nextToken()
   p.nextToken()
 
@@ -55,11 +59,11 @@ func New(l* lexer.Lexer) *Parser {
 
 func (p *Parser) nextToken() {
   p.curToken  = p.peekToken
-  p.peekToken = p.l.NextToken()   // lexer calls nextToken()
+  p.peekToken = p.l.NextToken()   // lexer calls nextToken().
 }
 
 func (p *Parser) ParseProgram() *ast.Program {
-  program := &ast.Program{}       // root of AST
+  program := &ast.Program{}       // root of AST.
   program.Statements = []ast.Statement{}
 
   for !p.curTokenIs(token.EOF) {
@@ -116,6 +120,8 @@ func (p* Parser) parseReturnStatement() *ast.ReturnStatement {
  return stmt
 }
 
+// this method that kicks off expression parsing 
+
 func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
   stmt := &ast.ExpressionStatement{Token: p.curToken}
   stmt.Expression = p.parseExpression(LOWEST)
@@ -126,24 +132,57 @@ func (p *Parser) parseExpressionStatement() *ast.ExpressionStatement {
   return stmt
 }
 
+func (p *Parser) parsePrefixExpression() ast.Expression {
+  expression := &ast.PrefixExpression{
+    Token: p.curToken,
+    Operator: p.curToken.Literal,
+  }
+  // consume another token to parse prefix expression.
+  p.nextToken()
+
+  // integer parsing.
+  expression.Right = p.parseExpression(PREFIX)
+
+  return expression
+}
+
 func (p *Parser) parseExpression(precendence int) ast.Expression {
   // prefix is a function that parses the given Token.
   prefix := p.prefixParseFns[p.curToken.Type]
   if prefix == nil {
+    p.noPrefixParseFnError(p.curToken.Type)
     return nil
   }
   leftExp := prefix()
   return leftExp
 }
 
+/***** Tokens parsing *****/
+
 func (p *Parser) parseIdentifier() ast.Expression {
   return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 }
 
+func (p *Parser) parseIntegerLiteral() ast.Expression {
+  lit := &ast.IntegerLiteral{Token: p.curToken}
+
+  value, error := strconv.ParseInt(p.curToken.Literal, 0, 64)
+  if error != nil {
+    msg := fmt.Sprintf("count not parse %q as integer", p.curToken.Literal)
+    p.errors = append(p.errors, msg)
+    return nil
+  }
+  lit.Value = value
+
+  return lit
+}
+
+/***** Tokens type check *****/
 
 func (p *Parser) curTokenIs(t token.TokenType) bool {
   return p.curToken.Type == t
 }
+
 func (p *Parser) peekTokenIs(t token.TokenType) bool {
   return p.peekToken.Type == t
 }
@@ -162,6 +201,7 @@ func (p *Parser) expectPeek(t token.TokenType) bool {
 }
 
 /***** Maps management *****/
+
 func (p *Parser) registerPrefix(tokenType token.TokenType, fn prefixParseFn) {
   p.prefixParseFns[tokenType] = fn
 }
@@ -179,3 +219,10 @@ func (p* Parser) peekError(t token.TokenType) {
   msg := fmt.Sprintf("expected next token to be %s, got %s instead",t, p.peekToken.Type)
   p.errors = append(p.errors, msg)
 }
+
+func (p *Parser) noPrefixParseFnError(t token.TokenType) {
+  msg := fmt.Sprintf("no prefix parse function for %s found", t)
+  p.errors = append(p.errors, msg)
+}
+
+
