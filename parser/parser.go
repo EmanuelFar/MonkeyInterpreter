@@ -60,6 +60,10 @@ func New(l* lexer.Lexer) *Parser {
   p.registerPrefix(token.INT, p.parseIntegerLiteral)
   p.registerPrefix(token.BANG, p.parsePrefixExpression)
   p.registerPrefix(token.MINUS, p.parsePrefixExpression)
+  p.registerPrefix(token.TRUE, p.parseBoolean)
+  p.registerPrefix(token.FALSE, p.parseBoolean)
+  p.registerPrefix(token.LPAREN, p.parseGroupedExpression)
+  p.registerPrefix(token.IF, p.parseIfExpression)
 
   p.infixParseFns = make(map[token.TokenType]infixParseFn)
   p.registerInfix(token.PLUS, p.parseInfixExpression)
@@ -70,6 +74,7 @@ func New(l* lexer.Lexer) *Parser {
   p.registerInfix(token.NOT_EQ, p.parseInfixExpression)
   p.registerInfix(token.LT, p.parseInfixExpression)
   p.registerInfix(token.GT, p.parseInfixExpression)
+
 
   // Read two tokens to set curToken and peekToken.
   p.nextToken()
@@ -204,12 +209,68 @@ func (p *Parser) parseInfixExpression(left ast.Expression) ast.Expression {
 
   return expression
 }
+
+func (p *Parser)parseGroupedExpression() ast.Expression {
+  p.nextToken()
+
+  exp := p.parseExpression(LOWEST)
+
+  if !p.expectPeek(token.RPAREN) {
+    return nil
+  }
+  return exp
+}
+
+/***** if else expressions parsing *****/
+
+func (p *Parser) parseIfExpression() ast.Expression {
+  expression := &ast.IfExpression{Token: p.curToken}
+  if !p.expectPeek(token.LPAREN) {
+    return nil
+  }
+  p.nextToken()
+  expression.Condition = p.parseExpression(LOWEST)
+  if !p.expectPeek(token.RPAREN) {
+    return nil
+  }
+  if !p.expectPeek(token.LBRACE) {
+    return nil
+  }
+  expression.Consequence = p.parseBlockStatement()
+
+  if p.peekTokenIs(token.ELSE) {
+    p.nextToken()
+
+    if !p.expectPeek(token.LBRACE) {
+      return nil
+    }
+    expression.Alternative = p.parseBlockStatement()
+  }
+  return expression
+}
+
+func (p *Parser) parseBlockStatement() *ast.BlockStatement {
+  block := &ast.BlockStatement{Token: p.curToken}
+  block.Statements = []ast.Statement{}
+  p.nextToken()
+  for !p.curTokenIs(token.RBRACE) && !p.curTokenIs(token.EOF) {
+    stmt := p.parseStatement()
+    if stmt != nil {
+      block.Statements = append(block.Statements, stmt)
+    }
+    p.nextToken()
+  }
+  return block
+}
 /***** Tokens parsing *****/
 
 func (p *Parser) parseIdentifier() ast.Expression {
   return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 }
 
+func (p *Parser) parseBoolean() ast.Expression {
+  return &ast.Boolean{Token: p.curToken, Value: p.curTokenIs(token.TRUE)}
+}
 func (p *Parser) parseIntegerLiteral() ast.Expression {
   lit := &ast.IntegerLiteral{Token: p.curToken}
 
@@ -236,6 +297,7 @@ func (p *Parser) peekTokenIs(t token.TokenType) bool {
 
 /* primary purpose is to enforce the correctness of the -..
 * order of the tokens.
+*  - expectPeek advances token.
 * */
 func (p *Parser) expectPeek(t token.TokenType) bool {
   if p.peekTokenIs(t) {
