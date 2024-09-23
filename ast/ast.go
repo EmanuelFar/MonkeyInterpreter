@@ -149,7 +149,7 @@ var out bytes.Buffer
   return out.String()
 }
 
-
+/***** Integer/String Literals *****/
 type IntegerLiteral struct {
   Token token.Token
   Value int64
@@ -158,6 +158,16 @@ type IntegerLiteral struct {
 func (il *IntegerLiteral) expressionNode() {}
 func (il *IntegerLiteral) TokenLiteral() string {return il.Token.Literal }
 func (il *IntegerLiteral) String() string {return il.Token.Literal }
+
+
+type StringLiteral struct {
+  Token token.Token
+  Value string
+}
+
+func (sl *StringLiteral) expressionNode(){}
+func (sl *StringLiteral) TokenLiteral() string { return sl.Token.Literal }
+func (sl *StringLiteral) String() string { return sl.Token.Literal }
 
 /***** infix expression *****/
 

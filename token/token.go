@@ -10,6 +10,14 @@ type Token struct {
   Literal string
 }
 
+func LookupIdent(ident string) TokenType {
+  if tok, exists := keywords[ident]; exists {
+    return tok
+  }
+  return IDENT
+}
+
+
 var keywords = map[string]TokenType {
   "fn"    : FUNCTION,
   "let"   : LET,
@@ -19,14 +27,6 @@ var keywords = map[string]TokenType {
   "else"  : ELSE,
   "return": RETURN,
 }
-
-func LookupIdent(ident string) TokenType {
-  if tok, exists := keywords[ident]; exists {
-    return tok
-  }
-  return IDENT
-}
-
 // Token types (In monkey we've limited tokens comparing to other languages)
 const (
   ILLEGAL = "ILLEGAL" // Unknown token/character
@@ -35,7 +35,7 @@ const (
   // Identifiers & Literals
   IDENT   = "IDENT" // x, y...
   INT     = "INT"   // 1,2,3
-
+  STRING  = "STRING"
   // Operators
   ASSIGN  = "="
   PLUS    = "+"
